@@ -3,9 +3,28 @@ __pycache__/
 .pytest_cache/
 *.pyc
 *.egg-info/
+.DS_Store
+Thumbs.db
+
+# Secrets and local overrides
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets/
+
+# Runtime output
+*.log
 runs/*
 !runs/.gitkeep
 pinescript/current.pine
+config/local.yaml
+
+# Local MCP / editor noise (committed example stays: .mcp.json.example, .cursor/mcp.json)
 .mcp.json
+.cursor/*.log
+
+# Cloned MCP (see vendor/README.md)
 vendor/tradingview-mcp/

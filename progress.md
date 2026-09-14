@@ -28,6 +28,7 @@ TradingView Desktop 연동과 1회 스모크는 됨. 테스터가 `HUB DOGE EMA 
 
 ## 최근에 한 일
 
+- 2026-09-15: 공개 GitHub README 작성, 시크릿/로컬 설정 gitignore 보강.
 - 2026-09-15: 문서 체계를 `progress.md` + `decisions.md` 로 나눔. `.cursor/plans/` 백로그는 이쪽으로 옮김.
 - 2026-09-15: live-smoke 1회. Daily MA 제거, 허브 전략 테스터 연동 성공. NP ~-9%, PF 0.96, MDD ~31%, 거래 436.
 - 2026-09-15: 레퍼런스 파인 `pinescript/reference/` (Daily MA, SOXL Daily MA). 허브 헤더 1행 version / 2행 strategy 제목.

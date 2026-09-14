@@ -10,7 +10,7 @@
 | [decisions.md](decisions.md) | 큰 방향 전환 (왜 / 무엇을 안 하는지) | 전략·루프를 바꿀 때 |
 | [architecture.md](architecture.md) | 코드가 이렇게 나뉜 이유 | 구조·실행 흐름 |
 | 이 파일 (`agent.md`) | 차트 준비, 파인 규칙, 에이전트 습관 | MCP·차트 조작 전 |
-| [README.md](README.md) | 설치와 실행 명령 | 사람 온보딩 |
+| [README.md](README.md) | 소개와 사용법 | 사람 온보딩 |
 
 Cursor Plan 초안만 `.cursor/plans/` 에 둠. 진행·백로그는 `progress.md` 에 적음.
 
