@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TradingView 연동</title>
+  <style>
+    :root {
+      --bg: #10141c;
+      --card: #1a2130;
+      --line: #2a3548;
+      --text: #e8eef8;
+      --muted: #9aa8bd;
+      --ok: #3dd68c;
+      --warn: #f0c14b;
+      --bad: #ef6b6b;
+      --link: #7eb6ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 8px; }
+    h2 { font-size: 1.1rem; margin: 28px 0 10px; }
+    p, li { color: var(--muted); }
+    a { color: var(--link); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px 18px 16px;
+      margin-top: 16px;
+    }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--bad); flex: none;
+    }
+    .dot.ok { background: var(--ok); }
+    .dot.warn { background: var(--warn); }
+    button, .copy {
+      background: #2d6cdf;
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    button.secondary { background: #31405a; }
+    code, pre {
+      background: #0c1018;
+      color: #d5e4ff;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+    pre { padding: 12px; overflow-x: auto; }
+    code { padding: 2px 6px; }
+    ol { padding-left: 1.2rem; }
+    .meta { font-size: 0.85rem; color: var(--muted); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>TradingView Desktop 연동</h1>
+    <p>이 페이지는 차트 앱이 debug 모드로 켜져 있는지 확인함. 연결되면 Cursor MCP가 백테스트 숫자를 읽을 수 있음.</p>
+
+    <section class="card">
+      <div class="row">
+        <span class="dot" id="dot"></span>
+        <strong id="stateLabel">확인 중...</strong>
+        <button type="button" id="refreshBtn">다시 확인</button>
+      </div>
+      <p id="summary">-</p>
+      <p class="meta" id="detail"></p>
+    </section>
+
+    <h2>1. Debug 모드로 앱 실행</h2>
+    <p>그냥 아이콘으로 연 TradingView는 연결할 수 없음. 한 번 종료한 뒤, debug 포트(9222)를 열고 다시 실행해야 함.</p>
+    <ol>
+      <li>TradingView를 완전히 종료함.</li>
+      <li>아래 스크립트를 PowerShell에서 실행함. (기존 앱을 종료한 뒤 debug로 다시 켬)</li>
+      <li>이 페이지에서 <strong>다시 확인</strong>을 누름.</li>
+      <li>상태가 "연결됨"이면 Cursor 채팅에서 TradingView MCP를 켜면 됨.</li>
+    </ol>
+    <pre id="launchCmd">powershell -ExecutionPolicy Bypass -File scripts\launch_tv_debug.ps1</pre>
+    <p>
+      <button type="button" class="secondary" id="copyBtn">명령 복사</button>
+    </p>
+
+    <h2>2. 차트에 붙은 기존 전략은 닫기</h2>
+    <p>허브가 새 전략을 차트에 못 붙이면, 에디터에 열려 있던 <strong>기존 파인 파일을 저장으로 덮어쓸</strong> 수 있음. Strategy Tester는 차트에 이미 있는 전략 숫자를 읽음.</p>
+    <ol>
+      <li>레이아웃 범례에서 기존 Strategy를 <strong>X로 제거</strong>함. 눈 아이콘만 끄면 Tester가 다시 켤 수 있음.</li>
+      <li>파인 에디터는 <strong>Open → New → Strategy</strong> 로 빈 스크립트를 연 뒤 허브를 실행함. 저장된 Daily MA 같은 파일을 연 채로 두면 Save가 그 파일을 덮어씀.</li>
+      <li>허브는 이름에 Strategy가 들어간 스터디를 자동으로 제거하려고 함 (<code>tv.clear_existing_strategies</code>).</li>
+    </ol>
+
+    <h2>3. 설명 / 링크</h2>
+    <ul>
+      <li><a href="https://github.com/tradesdontlie/tradingview-mcp" target="_blank" rel="noreferrer">tradesdontlie/tradingview-mcp</a> — 이 허브가 쓰는 MCP (star 가장 많음)</li>
+      <li><a href="https://github.com/tradesdontlie/tradingview-mcp#quick-start" target="_blank" rel="noreferrer">Quick Start</a> — Desktop을 debug 포트로 켜는 공식 안내</li>
+      <li><a href="https://developer.chrome.com/docs/devtools/remote-debugging/" target="_blank" rel="noreferrer">Chrome Remote Debugging</a> — `--remote-debugging-port` 가 하는 일</li>
+    </ul>
+    <p>Microsoft Store 설치본은 debug 포트가 막히는 경우가 있음. 그때는 MCP 도구 <code>tv_launch</code> 가 로컬 복사본으로 실행하는 우회를 씀.</p>
+
+    <h2>4. Cursor MCP</h2>
+    <p>프로젝트 파일 <code>.cursor/mcp.json</code> 에 <code>tradingview</code> 서버가 들어가 있음. Cursor 설정에서 해당 MCP를 활성화한 뒤 채팅을 새로고침하면 됨.</p>
+    <p>테스트용 저장 레이아웃이 있으면 <code>config/default.yaml</code> 의 <code>layout</code> 에 이름을 넣음. 비우면 지금 열린 차트를 쓰고, 종목은 config 값으로 다시 맞춤.</p>
+  </main>
+  <script>
+    const dot = document.getElementById("dot");
+    const stateLabel = document.getElementById("stateLabel");
+    const summary = document.getElementById("summary");
+    const detail = document.getElementById("detail");
+
+    function paint(data) {
+      const map = {
+        ready: ["ok", "연결됨"],
+        app_without_debug: ["warn", "앱만 켜짐 (debug 없음)"],
+        offline: ["bad", "앱 꺼짐"]
+      };
+      const [cls, label] = map[data.state] || ["bad", data.state];
+      dot.className = "dot " + cls;
+      stateLabel.textContent = label;
+      summary.textContent = data.summary;
+      const cdp = data.cdp || {};
+      const bits = [
+        "desktop=" + data.desktop_running,
+        "mcp=" + data.mcp_installed,
+        "cdp_port=" + (cdp.port || "-"),
+        cdp.browser ? ("browser=" + cdp.browser) : ("cdp_error=" + (cdp.error || "-"))
+      ];
+      detail.textContent = bits.join(" | ");
+    }
+
+    async function refresh() {
+      stateLabel.textContent = "확인 중...";
+      const res = await fetch("/api/status");
+      paint(await res.json());
+    }
+
+    document.getElementById("refreshBtn").addEventListener("click", refresh);
+    document.getElementById("copyBtn").addEventListener("click", async () => {
+      const text = document.getElementById("launchCmd").textContent;
+      await navigator.clipboard.writeText(text);
+    });
+    refresh();
+  </script>
+</body>
+</html>

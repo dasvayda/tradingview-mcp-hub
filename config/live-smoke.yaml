@@ -1,0 +1,41 @@
+# First live smoke: 2 backtest cycles against Desktop.
+# Same chart settings as default.yaml, shorter loop for log analysis.
+
+symbol: BINANCE:DOGEUSDT
+timeframe: "60"
+layout: crypto
+loop_limit: 1
+initial_capital: 10000
+
+target:
+  net_profit_percent: 20.0
+  min_trades: 20
+  min_profit_factor: 1.2
+  max_drawdown_percent: 35.0
+
+pine:
+  source_path: pinescript/doge_ema_rsi_atr.pine
+  current_path: pinescript/current.pine
+
+tv:
+  command: ["node", "vendor/tradingview-mcp/src/cli/index.js"]
+  cdp_port: 9222
+  compile_wait_seconds: 8
+  results_wait_seconds: 12
+  results_retries: 6
+  screenshot: false
+  clear_existing_strategies: true
+  keep_strategy_substring: "HUB DOGE"
+
+mutation:
+  mode: params
+  seed: 7
+  knobs:
+    fast_ema: [8, 12, 16, 21]
+    slow_ema: [26, 34, 55, 89]
+    rsi_long: [50, 52, 55, 58]
+    atr_mult: [1.2, 1.5, 2.0, 2.5]
+    rr_ratio: [1.5, 2.0, 2.5, 3.0]
+
+output:
+  runs_dir: runs/live-smoke

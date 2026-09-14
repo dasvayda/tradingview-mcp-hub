@@ -1,0 +1,344 @@
+//@version=6
+strategy("Daily MA Strategy v1.0", overlay=true, pyramiding=3, initial_capital=1000, default_qty_type=strategy.percent_of_equity, default_qty_value=33)
+
+// 일봉 하이킨아시 데이터
+haOpen = request.security(ticker.heikinashi(syminfo.tickerid), "1D", open)
+haHigh = request.security(ticker.heikinashi(syminfo.tickerid), "1D", high)
+haLow = request.security(ticker.heikinashi(syminfo.tickerid), "1D", low)
+haClose = request.security(ticker.heikinashi(syminfo.tickerid), "1D", close)
+
+// 이동평균선
+ma10 = request.security(ticker.heikinashi(syminfo.tickerid), "1D", ta.sma(close, 10))
+ma20 = request.security(ticker.heikinashi(syminfo.tickerid), "1D", ta.sma(close, 20))
+ma50 = request.security(ticker.heikinashi(syminfo.tickerid), "1D", ta.sma(close, 50))
+ma100 = request.security(ticker.heikinashi(syminfo.tickerid), "1D", ta.sma(close, 100))
+
+// MACD 지표 추가 (V-패턴 리스크 감소용)
+[macdLine, signalLine, histLine] = request.security(ticker.heikinashi(syminfo.tickerid), "1D", ta.macd(close, 12, 26, 9))
+macdBullish = macdLine > signalLine and macdLine[1] <= signalLine[1]  // MACD 골든크로스
+macdRising = macdLine > macdLine[1] and macdLine[1] > macdLine[2]  // MACD 상승 모멘텀
+ // MACD 기반 조기 경고 시스템
+macd_warning = macdLine < signalLine and macdLine[1] >= signalLine[1]  // MACD 데드크로스
+macd_bearish_momentum = macdLine < macdLine[1] and macdLine[1] < macdLine[2]  // MACD 연속 하락
+
+// 거래량 관련
+avgVolume = ta.sma(volume, 20)
+volumeSpike = volume > avgVolume * 2
+
+// 캔들 패턴 분석
+isBullish = haClose > haOpen
+isBearish = haClose < haOpen
+bodySize = math.abs(haClose - haOpen)
+candleRange = haHigh - haLow
+bullishPercent = bodySize / haOpen * 100
+upperWick = haHigh - math.max(haOpen, haClose)  // 윗꼬리 길이
+lowerWick = math.min(haOpen, haClose) - haLow  // 아래꼬리 길이
+isLowWickBear = (haClose < haOpen) and upperWick == 0
+isUpWickBull = (haOpen < haClose) and lowerWick <= bodySize*0.15
+plotshape(isUpWickBull, style=shape.arrowup, location=location.abovebar, color=color.green, title="Bull")
+plotshape(isLowWickBear, style=shape.arrowdown, location=location.abovebar, color=color.red, title="Bear")
+
+// 연속 양봉/음봉 확인
+bullish3 = isBullish and isBullish[1] and isBullish[2]
+bearish3 = isBearish and isBearish[1] and isBearish[2]
+
+// 수일 이내 조건 확인 (최대 10일)
+var int lookbackDays = 10
+
+// 포지션 상태 변수 (개선)
+var bool position1 = false
+var bool position2 = false
+var bool position3 = false
+
+// 마지막 진입 이후 대기 기간 (단순화)
+var int last_entry1_bar = 0
+var int last_entry2_bar = 0
+var int last_entry3_bar = 0
+var int cooldown_period = 2  // 2일 대기 기간 (더 단축)
+
+
+// 진입 시 이동평균선 정보 저장 (청산 조건 차별화용)
+var float entry_ma50_level1 = 0.0  // position1 진입시 50일선 수준
+var float entry_ma50_level2 = 0.0  // position2 진입시 50일선 수준
+var bool entry_below_ma50_1 = false  // position1이 50일선 아래에서 진입했는지
+var bool entry_below_ma50_2 = false  // position2가 50일선 아래에서 진입했는지
+
+// 조건 1: 50일선/100일선 돌파 또는 근접 반등 (isUpWickBull 패턴 추가)
+was_below_ma50 = false
+was_below_ma100 = false
+for i = 1 to lookbackDays
+    if haLow[i] < ma50[i] * 0.98  // 98% 이하 접근도 포함
+        was_below_ma50 := true
+    if haLow[i] < ma100[i] * 0.98  // 98% 이하 접근도 포함
+        was_below_ma100 := true
+    if was_below_ma50 and was_below_ma100
+        break
+
+// 50일선 또는 100일선 돌파/근접 반등 조건
+ma50_signal = (haClose > ma50 * 1.015 and haClose[1] <= ma50[1]) or  // 50일선 돌파
+              (haClose > ma50 * 1.015 and (haLow < ma50 * 0.99 or haClose[1] < haClose) and isBullish)  // 50일선 근접 반등
+
+ma100_signal = (haClose > ma100 * 1.003 and haClose[1] <= ma100[1]) or  // 100일선 돌파
+               (haClose > ma100 * 0.995 and haLow < ma100 * 0.99 and isBullish)  // 100일선 근접 반등
+
+// 캔들 패턴 확인 추가
+candle_strength1 = isUpWickBull or (bullishPercent >= 2.0 and isBullish)  // 강한 윗꼬리 양봉 또는 2% 이상 강한 양봉
+
+entry_condition1 = ((was_below_ma50 and ma50_signal) or (was_below_ma100 and ma100_signal)) and candle_strength1 and not position1 and  macdLine > signalLine
+
+// 조건 2: 20일선 돌파 또는 근접 반등 (isUpWickBull 패턴 추가)
+was_below_ma20 = false
+for i = 1 to lookbackDays
+    if haLow[i] < ma20[i] * 0.99  // 99% 이하 접근
+        was_below_ma20 := true
+        break
+
+// 20일선 돌파 또는 근접 반등 조건
+ma20_signal = (haClose > ma20 * 1.002 and haClose[1] <= ma20[1]) or  // 돌파
+              (haClose > ma20 * 0.998 and haLow < ma20 * 0.995 and isBullish)  // 근접 반등
+
+// 캔들 패턴 확인 추가
+candle_strength2 = isUpWickBull or (bullishPercent >= 1.5 and isBullish)  // 강한 윗꼬리 양봉 또는 1.5% 이상 양봉
+
+entry_condition2 = haClose > ma50 * 0.98 and was_below_ma20 and ma20_signal and candle_strength2 and not position2 and  macdLine > signalLine
+
+// 조건 3: V-패턴 반등 (MACD + 하락대비 상승률 중심으로 단순화)
+// 기본 조건: 최근 하락 후 반등 확인
+recent_decline = false
+significant_volume = false
+strong_recovery = false
+
+// 1단계: 최근 10일 내 의미있는 하락 확인
+lowest_recent = ta.lowest(haLow, lookbackDays)
+highest_before_drop = ta.highest(haHigh, lookbackDays)
+total_decline_percent = (highest_before_drop - lowest_recent) / highest_before_drop * 100
+
+// 2단계: 현재 저점대비 상승률 계산
+current_recovery_percent = (haClose - lowest_recent) / lowest_recent * 100
+
+// 3단계: 거래량 스파이크 확인 (간단화)
+for i = 1 to 5  // 최근 5일만 확인
+    if volume[i] > avgVolume[i] * 2.3  // 2.3배 이상 (완화)
+        significant_volume := true
+        break
+
+// 4단계: 하락 조건 (단순화)
+recent_decline := total_decline_percent > 8.0  // 8% 이상 하락
+
+// 5단계: 반등 조건 (핵심)
+strong_recovery := current_recovery_percent > 3.0  // 저점대비 3% 이상 반등
+
+// 6단계: MACD 모멘텀 (개선된 조건)
+macd_recovery_signal = (macdLine > macdLine[1] and macdLine[1] > macdLine[2]) or  // MACD 상승 추세
+                       (macdLine > signalLine and macdLine[1] <= signalLine[1]) or  // MACD 골든크로스
+                       (macdLine > -0.5 and macdLine > macdLine[1])  // MACD 개선 중
+
+// 7단계: 캔들 패턴 (단순화)
+candle_pattern_confirmed = isUpWickBull or (bullishPercent >= 0.5 and isBullish)  // 완화된 조건
+
+entry_condition3 = recent_decline and strong_recovery and significant_volume and macd_recovery_signal and candle_pattern_confirmed and not position3
+
+// 정배열 대체 진입 조건: 10 > 20 > 50, 현재가가 10일선 위, 3연속 양봉
+stacked_bull_entry = ma10 > ma20 and ma20 > ma50 and haClose > ma10 and bullish3 and not position1
+
+
+// 진입 로직 (단순화) - 중복 진입 방지
+// 조건 1: MA50/MA100 전략 (우선순위: MA50 > MA100)
+if entry_condition1 and (bar_index - last_entry1_bar) > cooldown_period
+    if was_below_ma50 and ma50_signal and not position1
+        strategy.entry("Long1", strategy.long, comment="#1 MA50 Strategy")
+        position1 := true
+        last_entry1_bar := bar_index
+        entry_ma50_level1 := ma50
+        entry_below_ma50_1 := haClose < ma50  // 진입시 50일선 위치 기록
+    else if was_below_ma100 and ma100_signal and not position1
+        strategy.entry("Long1", strategy.long, comment="#1 MA100 Strategy")
+        position1 := true
+        last_entry1_bar := bar_index
+        entry_ma50_level1 := ma50
+        entry_below_ma50_1 := haClose < ma50  // 진입시 50일선 위치 기록
+
+// 조건 2: MA20 전략
+if entry_condition2 and (bar_index - last_entry2_bar) > cooldown_period and not position2
+    strategy.entry("Long2", strategy.long, comment="#2 MA20 Strategy")
+    position2 := true
+    last_entry2_bar := bar_index
+    entry_ma50_level2 := ma50
+    entry_below_ma50_2 := haClose < ma50  // 진입시 50일선 위치 기록
+
+// 조건 3: V-패턴 전략
+if entry_condition3 and (bar_index - last_entry3_bar) > cooldown_period and not position3
+    strategy.entry("Long3", strategy.long, comment="#3 V-Pattern Strategy")
+    position3 := true
+    last_entry3_bar := bar_index
+
+// 이동평균선 정배열
+if not position1 and stacked_bull_entry and (bar_index - last_entry1_bar) > cooldown_period and macdLine > signalLine
+    strategy.entry("Long1", strategy.long, comment="#1 MA10/20/50 Stack")
+    position1 := true
+    last_entry1_bar := bar_index
+    entry_ma50_level1 := ma50
+    entry_below_ma50_1 := haClose < ma50  // 진입시 50일선 위치 기록
+
+
+// 청산 조건 (개선된 버전)
+exit_condition1 = bearish3 and haClose < ma20 and close < ma20  // 3연속 하락 + MA20 하향돌파
+exit_condition2 = bullishPercent <= -3.0 and haClose < ma20  // 3% 이상 하락 + MA20 하향돌파
+
+// 50일선 청산 조건 (진입 위치에 따라 차별화)
+exit_condition3_pos1 = false  // position1용 50일선 청산 조건
+exit_condition3_pos2 = false  // position2용 50일선 청산 조건
+
+// Position1: 50일선 아래 진입 시 최소 2일 대기 + 확실한 하락 확인
+if position1
+    days_since_entry1 = bar_index - last_entry1_bar
+    if entry_below_ma50_1
+        // 50일선 아래에서 진입한 경우: 최소 2일 대기 + 연속 하락 + 50일선 하방
+        exit_condition3_pos1 := days_since_entry1 > 2 and bearish3 and haClose < ma50 * 0.985
+    else
+        // 50일선 위에서 진입한 경우: 일반적인 50일선 하방돌파
+        exit_condition3_pos1 := haClose < ma50
+
+// Position2: 50일선 아래 진입 시 최소 2일 대기
+if position2
+    days_since_entry2 = bar_index - last_entry2_bar
+    if entry_below_ma50_2
+        // 50일선 아래에서 진입한 경우: 최소 2일 대기 + 50일선 하방
+        exit_condition3_pos2 := days_since_entry2 > 2 and haClose < ma50 * 0.985
+    else
+        // 50일선 위에서 진입한 경우: 일반적인 50일선 하방돌파
+        exit_condition3_pos2 := haClose < ma50
+
+// 현재 보유 포지션 수 계산
+active_positions = 0
+if position1
+    active_positions := active_positions + 1
+if position2
+    active_positions := active_positions + 1
+if position3
+    active_positions := active_positions + 1
+
+// 분할 매도 로직 (복수 포지션일 경우)
+if active_positions > 1
+    // 경고 신호: 일부 포지션만 청산 (분할 매도)
+    if exit_condition1 or exit_condition2
+        exitReason = exit_condition1 ? "Partial: 3 Bearish + MA20" : "Partial: Big Drop + MA20"
+
+        // 수익률 계산 및 표시
+        current_profit = (close - strategy.position_avg_price) / strategy.position_avg_price * 100
+        profit_msg = " / " + str.tostring(current_profit, "##.#") + "%"
+
+        // 가장 위험한 포지션부터 청산 (MA20 > MA50 > V-패턴 순서)
+        if position2  // MA20 돌파 포지션이 가장 위험
+            strategy.close("Long2", comment= "#1" + exitReason + profit_msg)
+            position2 := false
+            entry_below_ma50_2 := false  // 리셋
+        else if position1  // 그 다음 MA50 돌파 포지션
+            strategy.close("Long1", comment="#2" + exitReason + profit_msg)
+            position1 := false
+            entry_below_ma50_1 := false  // 리셋
+        else if position3  // 마지막으로 V-패턴 포지션
+            strategy.close("Long3", comment="#3" + exitReason + profit_msg)
+            position3 := false
+
+    // 강한 하락 신호: 개별 포지션별 50일선 청산 조건 적용
+    else if exit_condition3_pos1 or exit_condition3_pos2
+        current_profit = (close - strategy.position_avg_price) / strategy.position_avg_price * 100
+        profit_msg = " / " + str.tostring(current_profit, "##.#") + "%"
+
+        if position1 and exit_condition3_pos1
+            strategy.close("Long1", comment="#1" + "Full Exit: MA50 Break" + profit_msg)
+            position1 := false
+            entry_below_ma50_1 := false  // 리셋
+        if position2 and exit_condition3_pos2
+            strategy.close("Long2", comment="#2" + "Full Exit: MA50 Break" + profit_msg)
+            position2 := false
+            entry_below_ma50_2 := false  // 리셋
+        // V-패턴은 MA50 기준 청산에서 예외 (별도 조건으로 관리)
+
+// 단일 포지션일 경우: 개별 청산 조건 적용
+else if active_positions == 1
+    if exit_condition1 or exit_condition2 or (exit_condition3_pos1 and position1) or (exit_condition3_pos2 and position2)
+        current_profit = (close - strategy.position_avg_price) / strategy.position_avg_price * 100
+        profit_msg = " / " + str.tostring(current_profit, "##.#") + "%"
+
+        exitReason = exit_condition1 ? "Single: 3 Bearish + MA20" :
+                     exit_condition2 ? "Single: Big Drop + MA20" : "Single: MA50 Break"
+
+        if position1
+            strategy.close("Long1", comment="#1" + exitReason + profit_msg)
+            position1 := false
+            entry_below_ma50_1 := false  // 리셋
+        if position2
+            strategy.close("Long2", comment="#2" + exitReason + profit_msg)
+            position2 := false
+            entry_below_ma50_2 := false  // 리셋
+        if position3 and not (exit_condition3_pos1 or exit_condition3_pos2)  // V-패턴은 MA50 예외
+            strategy.close("Long3", comment="#3" + exitReason + profit_msg)
+            position3 := false
+
+// 개별 포지션 관리 (각 조건별 독립적 청산)
+// MA50/MA100 돌파 포지션: 점진적 약화 시 청산
+if position1 and ((close < ma50 * 0.985 and isBearish) or (haClose < ma100 * 0.985 and isBearish))
+    profit1 = (close - strategy.position_avg_price) / strategy.position_avg_price * 100
+    strategy.close("Long1", comment="#1" + "MA50/100 Weakness / " + str.tostring(profit1, "##.#") + "%")
+    if profit1 < 3
+        strategy.close("Long2", comment="#2" + "MA50/100 Weakness*2 / " + str.tostring(profit1, "##.#") + "%")
+    position1 := false
+
+// MA20 돌파 포지션: 빠른 반응으로 청산
+if position2
+    if (close < ma20 * 0.99 and isBearish) or (haClose < ma10 and macd_warning)
+        profit2 = (close - strategy.position_avg_price) / strategy.position_avg_price * 100
+        strategy.close("Long2", comment="#2" + "MA20 Weakness / " + str.tostring(profit2, "##.#") + "%")
+        position2 := false
+
+// V-패턴 포지션: 트레일링 스톱 방식 청산 (휩소 방지 개선)
+if position3
+    profit3 = (close - strategy.position_avg_price) / strategy.position_avg_price * 100
+
+    // 최대 수익률 추적
+    var float max_profit3 = 0.0
+    if profit3 > max_profit3
+        max_profit3 := profit3
+
+    // 진입 이후 경과 일수
+    days_since_entry3 = bar_index - last_entry3_bar
+
+    // 단계별 손절 시스템 (휩소 방지)
+    // 1단계: 진입 후 2일 이내는 -2.5% 손절 (여유 제공)
+    if days_since_entry3 <= 2 and profit3 < -2.5
+        strategy.close("Long3", comment="V-Pattern Early Stop / " + str.tostring(profit3, "##.#") + "%")
+        position3 := false
+        max_profit3 := 0.0
+    // 2단계: 3일 후에는 -1.5% 손절
+    else if days_since_entry3 > 2 and profit3 < -1.5
+        strategy.close("Long3", comment="V-Pattern Stop Loss / " + str.tostring(profit3, "##.#") + "%")
+        position3 := false
+        max_profit3 := 0.0
+    // 3단계: MACD 악화 + 수익률 부진 시 조기 청산 (3일 이후만)
+    else if days_since_entry3 > 3 and macd_warning and macd_bearish_momentum and profit3 < 0.5
+        strategy.close("Long3", comment="V-Pattern MACD Warning / " + str.tostring(profit3, "##.#") + "%")
+        position3 := false
+        max_profit3 := 0.0
+    // 4단계: 트레일링 스톱 (수익 보호)
+    else if max_profit3 > 3.0 and profit3 < (max_profit3 - 2.0)  // 3% 수익 후 2% 하락시
+        strategy.close("Long3", comment="V-Pattern Trailing / " + str.tostring(profit3, "##.#") + "%")
+        position3 := false
+        max_profit3 := 0.0
+    // 5단계: 극단적 하락 시 긴급 청산 (연속 음봉 + 100일선 급락)
+    else if bearish3 and haClose < ma100 * 0.90
+        strategy.close("Long3", comment="V-Pattern Emergency / " + str.tostring(profit3, "##.#") + "%")
+        position3 := false
+        max_profit3 := 0.0
+
+// 차트에 이동평균선 표시
+plot(ma20, color=color.yellow, linewidth=2, title="MA20")
+plot(ma50, color=color.green, linewidth=2, title="MA50")
+plot(ma100, color=color.blue, linewidth=2, title="MA100")
+
+
+// 이동평균선 근접도 표시
+plot(ma50 * 0.995, color=color.new(color.green, 70), linewidth=1, title="MA50 Support")
+plot(ma100 * 0.995, color=color.new(color.blue, 70), linewidth=1, title="MA100 Support")
+plot(ma20 * 0.998, color=color.new(color.yellow, 70), linewidth=1, title="MA20 Support")
