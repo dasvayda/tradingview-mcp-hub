@@ -5,7 +5,13 @@ Cursor가 **TradingView Desktop Strategy Tester** 를 직접 돌리게 하는 �
 파인 전략을 차트에 넣고, 테스터 숫자를 읽고, 목표에 가까워질 때까지 한 칸만 고친다.
 가격 CSV를 따로 긁어서 우리만의 시뮬을 돌리지 않는다. 점수는 쓰는 차트 앱 안에 있다.
 
-이 레포는 star가 가장 많은 TradingView MCP인 [tradesdontlie/tradingview-mcp](https://github.com/tradesdontlie/tradingview-mcp) 위에, 반복 루프와 설정과 에이전트 규칙만 얹은 것임.
+## MCP
+
+차트에 붙는 손은 [tradesdontlie/tradingview-mcp](https://github.com/tradesdontlie/tradingview-mcp) 임. MIT 라이선스. TradingView Desktop 을 CDP로 조종해서 종목·시간봉을 바꾸고, 파인을 넣고, Strategy Tester 숫자를 읽음.
+
+이 레포는 그 MCP를 클론해 쓰고, 그 위에 **반복 루프 / YAML 설정 / 채점** 만 얹음. 클론은 `vendor/tradingview-mcp/` 에 두며 git에는 넣지 않음. 설치는 아래 Usage.
+
+TradingView Inc. 공식 도구가 아님. 로컬 Desktop 이 debug 포트로 켜져 있어야 함.
 
 ## 한 바퀴
 
