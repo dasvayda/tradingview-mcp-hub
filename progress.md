@@ -22,6 +22,15 @@ TradingView Desktop 연동과 1회 스모크는 됨. 테스터가 `HUB DOGE EMA 
 
 완료 조건: 베이스 이름·시간봉·고른 이유가 `progress.md` 지금 칸과 `decisions.md` 에 있고, 스모크 전략 이름에 `HUB DOGE` 가 들어감.
 
+## 나중
+
+원본 MCP 스킬은 아직 다양하게 쓰지 않음. 허브 스킬은 주입→컴파일→테스터 숫자에 가깝고, `architecture.md` 가 `strategy-report` 형식만 언급함.
+
+- [ ] `vendor/tradingview-mcp/skills/` 와 `agents/` 를 읽고, 허브에 가져올 것/안 가져올 것을 표로 남김.
+  - skills: `chart-analysis`, `pine-develop`, `strategy-report`, `multi-symbol-scan`, `replay-practice`
+  - agents: `performance-analyst`
+  - 쓸 만하면 `.cursor/skills/` 또는 `tv-backtest-loop` 에 연결. 안 쓰면 [decisions.md](decisions.md) 에 왜 빼는지 한 줄.
+
 ## 막힌 것
 
 없음. Desktop CDP는 최근 스모크 때 연결됨.
