@@ -3,6 +3,7 @@
 
 symbol: BINANCE:DOGEUSDT
 # Perp/futures chart instead: BINANCE:DOGEUSDT.P
+# Locked: 1h. Do not switch to 1D until a daily strategy family is chosen (decisions.md).
 timeframe: "60"
 # Saved TradingView layout name (exact or substring). Empty = stay on the open chart.
 # Example: layout: HUB-DOGE-BT

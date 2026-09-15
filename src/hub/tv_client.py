@@ -7,8 +7,27 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from hub.chart_prep import is_foreign_strategy
-from hub.metrics import metrics_from_payload
+from hub.metrics import as_percent, merge_analysis, metrics_from_payload, unix_to_iso
 from hub.models import HubConfig, StrategyMetrics
+
+
+def _as_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+_PERIOD_JS = (
+    "(function(){ var bars=window.TradingViewApi._activeChartWidgetWV.value()"
+    "._chartWidget.model().mainSeries().bars();"
+    "var fi=bars.firstIndex(), li=bars.lastIndex();"
+    "var a=bars.valueAt(fi), b=bars.valueAt(li);"
+    "return JSON.stringify({from:a&&a[0], to:b&&b[0], bar_count:bars.size(), source:'chart_bars'});"
+    "})()"
+)
 
 
 class TvClient(Protocol):
@@ -166,9 +185,42 @@ class TvCliClient:
                 last = StrategyMetrics(error=str(exc), raw=exc.payload)
                 continue
             last = metrics_from_payload(payload)
+            last = self._attach_period(last, payload)
             if last.ok:
                 return last
         return last
+
+    def _attach_period(self, metrics: StrategyMetrics, payload: dict[str, Any]) -> StrategyMetrics:
+        inner = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else payload
+        extra: dict[str, Any] = {}
+        if isinstance(inner, dict):
+            extra["period_start"] = unix_to_iso(inner.get("period_from_unix"))
+            extra["period_end"] = unix_to_iso(inner.get("period_to_unix"))
+            extra["period_source"] = inner.get("period_source")
+            extra["bar_count"] = inner.get("bar_count")
+            extra["avg_trade_percent"] = as_percent(_as_float(inner.get("avg_trade_percent")))
+            extra["largest_win_percent"] = as_percent(_as_float(inner.get("largest_win_percent")))
+            extra["largest_loss_percent"] = as_percent(_as_float(inner.get("largest_loss_percent")))
+            extra["buy_hold_percent"] = as_percent(_as_float(inner.get("buy_hold_percent")))
+        if extra.get("period_start") and extra.get("period_end"):
+            return merge_analysis(metrics, extra)
+        try:
+            evaluated = self._run(["ui", "eval", _PERIOD_JS])
+        except TvCliError:
+            return merge_analysis(metrics, extra)
+        raw = evaluated.get("result")
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except json.JSONDecodeError:
+                raw = None
+        if not isinstance(raw, dict):
+            return merge_analysis(metrics, extra)
+        extra["period_start"] = extra.get("period_start") or unix_to_iso(raw.get("from"))
+        extra["period_end"] = extra.get("period_end") or unix_to_iso(raw.get("to"))
+        extra["period_source"] = extra.get("period_source") or raw.get("source") or "chart_bars"
+        extra["bar_count"] = extra.get("bar_count") or raw.get("bar_count")
+        return merge_analysis(metrics, extra)
 
     def screenshot(self, dest_stem: str) -> dict[str, Any]:
         return self._run(["screenshot", "--region", "strategy_tester", "--output", dest_stem])
@@ -233,9 +285,19 @@ class DryRunTvClient:
             net_profit=self.config.initial_capital * profit / 100.0,
             net_profit_percent=profit,
             profit_factor=pf,
+            max_drawdown=self.config.initial_capital * drawdown / 100.0,
             max_drawdown_percent=drawdown,
             total_trades=trades,
+            winning_trades=int(trades * 0.52),
+            losing_trades=int(trades * 0.48),
             percent_profitable=52.0,
+            avg_trade_percent=profit / max(trades, 1),
+            largest_win_percent=8.0,
+            largest_loss_percent=-5.0,
+            period_start="2025-01-01T00:00:00Z",
+            period_end="2026-01-01T00:00:00Z",
+            period_source="dry-run",
+            bar_count=5000,
             strategy="HUB DOGE EMA RSI ATR",
             currency="USD",
         )

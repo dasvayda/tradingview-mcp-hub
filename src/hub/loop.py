@@ -119,7 +119,7 @@ class BacktestLoop:
             record = self._backtest(snapshot)
             record.iteration = iteration
             history.append(record)
-            write_jsonl(jsonl, record)
+            write_jsonl(jsonl, record, self.config)
             log(
                 f"iter {iteration}/{cycles} score={record.score:.2f} "
                 f"np%={record.metrics.net_profit_percent} reason={record.reason}"

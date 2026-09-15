@@ -22,7 +22,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         "status": result.status,
         "iterations": result.iterations,
         "report": str(result.report_path) if result.report_path else None,
-        "best": cycle_to_dict(result.best) if result.best else None,
+        "best": cycle_to_dict(result.best, config) if result.best else None,
     }
     _print(json.dumps(payload, indent=2))
     return 0 if result.status in {"target_hit", "awaiting_agent_edit"} else 2

@@ -48,8 +48,8 @@ flowchart TD
 | `params` | Python이 `HUB:` 태그가 붙은 input 값만 바꿈 | 자동 파라미터 탐색 |
 | `agent` | 한 번 백테스트 후 멈춤. Cursor가 파인 로직을 고침 | 진입/청산 로직 실험 |
 
-기본 종목은 `BINANCE:DOGEUSDT`, 타임프레임 `60`(1시간).
-베이스 없이 파라미터만 돌리지 않는 결정은 [decisions.md](decisions.md). 남은 조사 단계는 [progress.md](progress.md).
+기본 종목은 `BINANCE:DOGEUSDT`. 차트 시간봉은 `60`(1시간)으로 고정. [decisions.md](decisions.md).
+베이스 없이 파라미터만 돌리지 않음. 남은 조사 단계는 [progress.md](progress.md).
 `layout` 을 넣으면 루프 시작 때 그 저장 레이아웃으로 바꾼 뒤, config의 종목/시간봉을 다시 맞춤. 비워 두면 지금 열린 차트를 씀.
 차트에 다른 Strategy가 붙어 있으면 Tester가 그걸 읽으므로, 허브는 이름에 Strategy가 들어간 스터디를 제거한 뒤 허브 스크립트를 넣음. 숨기기만 하면 안 됨.
 
@@ -62,6 +62,27 @@ flowchart TD
 5. 목표와 비교. 미달이면 knobs 격자에서 **이웃 값 하나**만 바꾸고 다시 주입
 
 TradingView가 없으면 `--dry-run` 이 가짜 성적으로 같은 루프를 검증함.
+
+## 성적 스키마
+
+숫자는 허브가 다시 계산하지 않음. TradingView Strategy Tester `performance.all` 을 읽음.
+`net_profit_percent` 는 **초기자본 대비 누적** (연율 아님). 첨부 Key stats 의 Total PnL `-10.30%` 와 같은 칸.
+
+| 필드 | 의미 | Tester |
+|------|------|--------|
+| `period_start` / `period_end` | 테스터 **Date Range** (UTC) | 이 구간의 누적 손익 |
+| `bar_count` | 차트에 잡혀 있는 봉 수. Date Range보다 짧을 수 있음 | |
+| `total_trades` | 거래 횟수 | 437 |
+| `win_rate_percent` | 승률 | Profitable trades 26.09% |
+| `net_profit` / `net_profit_percent` | 누적 손익 / 누적수익률 | Total PnL |
+| `avg_trade` / `avg_trade_percent` | 거래 1회 평균 | Avg trade |
+| `best_trade` / `best_trade_percent` | 최대 이익 거래 | Largest win |
+| `worst_trade` / `worst_trade_percent` | 최대 손실 거래 | Largest loss. MDD 아님 |
+| `max_drawdown` / `max_drawdown_percent` | MDD (자산 고점→저점) | Max drawdown |
+| `profit_factor` | 총익 / 총손 | Profit factor |
+| `buy_hold_percent` | 같은 구간 보유 | Buy & hold |
+
+리포트 `runs/report-*.md` 의 **Key stats** 와 `cycles.jsonl` 의 `analysis` 가 이 스키마임.
 
 ## 에이전트가 하는 일
 
