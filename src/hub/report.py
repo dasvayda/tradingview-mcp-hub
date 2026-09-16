@@ -28,6 +28,8 @@ def cycle_to_dict(record: CycleRecord, config: HubConfig | None = None) -> dict:
         "reason": record.reason,
         "score": record.score,
         "pine_snapshot": str(record.pine_snapshot) if record.pine_snapshot else None,
+        "symbol": symbol,
+        "timeframe": timeframe,
         "metrics": {
             "net_profit_percent": metrics.net_profit_percent,
             "profit_factor": metrics.profit_factor,
@@ -37,6 +39,14 @@ def cycle_to_dict(record: CycleRecord, config: HubConfig | None = None) -> dict:
             "error": metrics.error,
         },
         "analysis": analysis_snapshot(metrics, symbol=symbol, timeframe=timeframe),
+        "recorded_at": record.recorded_at,
+        "git_commit": record.git_commit,
+        "git_dirty": record.git_dirty,
+        "hypothesis": record.hypothesis,
+        "change": record.change,
+        "verdict": record.verdict,
+        "lesson": record.lesson,
+        "ban": record.ban,
     }
 
 

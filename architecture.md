@@ -14,6 +14,7 @@ TradingView 백테스트는 **차트 앱 안에서** 돌아감. 허브는 가격
 
 ```
 progress.md                  지금 / 남은 일 / 최근 한 일
+ledger.md / ledger.jsonl     백테스트 기억 (날짜, 커밋, 종목, 가설, 성적, keep/reject)
 decisions.md                 큰 방향 전환 기록
 config/default.yaml          종목, loop_limit, 목표 수익률
 pinescript/*.pine            허브가 주입하는 기본 전략
@@ -60,6 +61,7 @@ flowchart TD
 3. `tv pine set --file` 후 `tv pine compile`
 4. `tv data strategy` 로 net profit %, PF, MDD, 거래 수 읽기
 5. 목표와 비교. 미달이면 knobs 격자에서 **이웃 값 하나**만 바꾸고 다시 주입
+6. 매 사이클을 `ledger.jsonl` 에 날짜·커밋·가설·성적과 함께 남김. reject 의 `ban.match` 는 다음 탐색에서 뺌
 
 TradingView가 없으면 `--dry-run` 이 가짜 성적으로 같은 루프를 검증함.
 
@@ -80,9 +82,14 @@ TradingView가 없으면 `--dry-run` 이 가짜 성적으로 같은 루프를 �
 | `worst_trade` / `worst_trade_percent` | 최대 손실 거래 | Largest loss. MDD 아님 |
 | `max_drawdown` / `max_drawdown_percent` | MDD (자산 고점→저점) | Max drawdown |
 | `profit_factor` | 총익 / 총손 | Profit factor |
+
+채점 때 PF는 3까지만 반영함. 진 거래가 0개면 PF가 수백이 나와 수익이 더 낮은 설정을 Keep으로 올릴 수 있음.
 | `buy_hold_percent` | 같은 구간 보유 | Buy & hold |
 
 리포트 `runs/report-*.md` 의 **Key stats** 와 `cycles.jsonl` 의 `analysis` 가 이 스키마임.
+세션이 바뀌어도 남는 기억은 `ledger.jsonl` (원본) 과 `ledger.md` (표) 임. 항목마다 날짜, git 커밋, **종목**, 한 줄 변경, 테스터 숫자, keep/reject.
+Keep 비교는 같은 종목끼리만 함.
+`verdict: reject` 의 `ban.match` 는 파라미터 탐색이 다시 고르지 않음.
 
 ## 에이전트가 하는 일
 

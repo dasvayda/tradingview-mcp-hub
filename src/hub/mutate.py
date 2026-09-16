@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import random
-from typing import Mapping
+from typing import Mapping, Sequence
 
 ParamMap = dict[str, float]
 
@@ -18,6 +18,10 @@ def clamp_pair(params: ParamMap) -> ParamMap:
     slow = updated.get("slow_ema")
     if fast is not None and slow is not None and fast >= slow:
         updated["slow_ema"] = fast + 8
+    ma_fast = updated.get("ma_len")
+    ma_slow = updated.get("ma_len_slow")
+    if ma_fast is not None and ma_slow is not None and ma_fast >= ma_slow:
+        updated["ma_len_slow"] = ma_fast + 20
     return updated
 
 
@@ -53,24 +57,35 @@ def random_from_knobs(
 
 
 class ParamSearch:
-    def __init__(self, knobs: Mapping[str, tuple[float, ...]], seed: int) -> None:
+    def __init__(
+        self,
+        knobs: Mapping[str, tuple[float, ...]],
+        seed: int,
+        banned_matches: Sequence[Mapping[str, float]] | None = None,
+    ) -> None:
         self.knobs = knobs
         self.rng = random.Random(seed)
         self.seen: set[str] = set()
+        self.banned_matches = [dict(item) for item in banned_matches or []]
 
     def mark(self, params: Mapping[str, float]) -> None:
         self.seen.add(fingerprint(params))
 
+    def _usable(self, params: ParamMap) -> bool:
+        from hub.ledger import params_match_ban
+
+        if fingerprint(params) in self.seen:
+            return False
+        return not any(params_match_ban(params, match) for match in self.banned_matches)
+
     def next_candidate(self, current: ParamMap) -> ParamMap | None:
         for candidate in neighbors(current, self.knobs, self.rng):
-            key = fingerprint(candidate)
-            if key not in self.seen:
-                self.seen.add(key)
+            if self._usable(candidate):
+                self.seen.add(fingerprint(candidate))
                 return candidate
         for _ in range(24):
             candidate = random_from_knobs(current, self.knobs, self.rng)
-            key = fingerprint(candidate)
-            if key not in self.seen:
-                self.seen.add(key)
+            if self._usable(candidate):
+                self.seen.add(fingerprint(candidate))
                 return candidate
         return None

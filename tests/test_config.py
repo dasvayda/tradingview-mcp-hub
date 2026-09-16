@@ -9,9 +9,16 @@ def test_default_config_uses_doge_usdt():
     assert config.timeframe == "60"
     assert config.loop_limit >= 1
     assert config.mutation.mode in {"params", "agent"}
-    assert "fast_ema" in config.mutation.knobs
+    assert "ma_len" in config.mutation.knobs
+    assert 1.005 not in config.mutation.knobs.get("reclaim_pct", ())
+    assert 1.03 not in config.mutation.knobs.get("reclaim_pct", ())
+    assert 2.5 not in config.mutation.knobs.get("atr_mult", ())
+    assert 2.5 not in config.mutation.knobs.get("rr_ratio", ())
+    assert 34 not in config.mutation.knobs.get("ma_len", ())
     assert config.pine.source_path.exists()
     assert config.layout == "crypto"
+    assert config.ledger_jsonl.name == "ledger.jsonl"
+    assert config.ledger_md.name == "ledger.md"
     assert config.tv.clear_existing_strategies is True
     assert config.tv.cdp_port == 9222
     assert "vendor" in "".join(config.tv.command) or config.tv.command[0] in {"node", "tv"}

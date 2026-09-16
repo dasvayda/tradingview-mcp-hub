@@ -7,6 +7,7 @@
 | 파일 | 역할 | 언제 읽나 |
 |------|------|-----------|
 | [progress.md](progress.md) | 지금 하는 일, 남은 일, 최근 한 일 | 매 작업 시작 |
+| [ledger.md](ledger.md) | 백테스트 날짜·커밋·종목·가설·성적·keep/reject | 파인/파라미터를 바꾸기 전, 그리고 테스터를 읽은 뒤 |
 | [decisions.md](decisions.md) | 큰 방향 전환 (왜 / 무엇을 안 하는지) | 전략·루프를 바꿀 때 |
 | [architecture.md](architecture.md) | 코드가 이렇게 나뉜 이유 | 구조·실행 흐름 |
 | 이 파일 (`agent.md`) | 차트 준비, 파인 규칙, 에이전트 습관 | MCP·차트 조작 전 |
@@ -36,16 +37,20 @@ GitHub star 기준으로 TradingView MCP 중 가장 많이 쓰인 건 [tradesdon
 2. 파인 에디터는 Open → New → Strategy 로 빈 스크립트를 연 뒤 실행함.
 3. 허브는 `tv.clear_existing_strategies: true` 이면 이름에 Strategy가 들어간 스터디를 차트에서 제거함.
 
-기존에 오류 없이 돌아가던 전략 원본은 `pinescript/reference/` 에 둔다. 허브 템플릿(`pinescript/doge_ema_rsi_atr.pine`)과 섞지 않는다.
+기존에 오류 없이 돌아가던 전략 원본은 `pinescript/reference/` 에 둔다. 허브 템플릿(`pinescript/doge_daily_ma_reclaim.pine`)과 섞지 않는다.
 
 레퍼런스 스크립트 헤더: 1행 `//@version=...`, 2행 `strategy("제목", ...)`. 허브가 차트/테스터에서 전략을 찾을 때도 이 제목 문자열을 씀.
 
 ## 루프 습관
 
-1. `BINANCE:DOGEUSDT` 차트를 연다.
-2. 허브 템플릿을 넣는다. 지금은 `pinescript/doge_ema_rsi_atr.pine` (베이스가 바뀌면 그 파일).
-3. TradingView 백테스트 결과를 읽는다.
-4. 목표 미달이면 파라미터 또는 로직을 **하나** 고친다.
-5. `loop_limit` 까지 반복한다.
+1. `ledger.md` 의 Keep / Do not retry 를 읽는다. `ban.match` 와 같은 변경은 새 근거 없이 다시 하지 않는다.
+2. `BINANCE:DOGEUSDT` 차트를 연다.
+3. 허브 템플릿을 넣는다. 지금은 `pinescript/doge_daily_ma_reclaim.pine`.
+4. TradingView 백테스트 결과를 읽는다.
+5. 목표 미달이면 파라미터 또는 로직을 **하나** 고친다.
+6. 성적·커밋·가설을 `ledger.jsonl` 에 남긴다 (`python -m hub run` 이 자동, MCP만 쓰면 `python -m hub record`).
+7. `loop_limit` 까지 반복한다.
+
+런타임 `runs/` 파일은 gitignore 라서 세션이 바뀌면 사라질 수 있음. 기억은 `ledger.md` / `ledger.jsonl` 만 씀.
 
 베이스 전략이 정해지기 전에는 이 루프를 본 작업으로 쓰지 않음. 현재 초점과 남은 일은 [progress.md](progress.md), 방향은 [decisions.md](decisions.md).

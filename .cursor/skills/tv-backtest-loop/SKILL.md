@@ -9,9 +9,11 @@ description: >-
 
 # TradingView backtest optimize loop
 
-Read [agent.md](../../../agent.md), [progress.md](../../../progress.md), [decisions.md](../../../decisions.md), [architecture.md](../../../architecture.md), and `config/default.yaml` before acting.
+Read [agent.md](../../../agent.md), [progress.md](../../../progress.md), [ledger.md](../../../ledger.md), [decisions.md](../../../decisions.md), [architecture.md](../../../architecture.md), and `config/default.yaml` before acting.
 
 If `progress.md` says the parameter loop is not the current job, do not run `loop_limit` as the main task. Follow **다음** there instead.
+
+Do not repeat a `ledger.md` **Do not retry** row. `ban.match` params are skipped by `python -m hub run` too.
 
 If Desktop CDP is down, open `python -m hub web` (http://127.0.0.1:8788) and follow debug steps. Project MCP config: `.cursor/mcp.json`.
 
@@ -45,29 +47,35 @@ One hypothesis, one code change, one backtest. Inspired by DaviddTech strategy-o
 Copy this checklist:
 
 ```
+[ ] 0. Read ledger.md Keep + Do not retry. Do not repeat a banned change
 [ ] 1. Read config + current pine (pinescript/current.pine if it exists, else source_path)
 [ ] 2. Health check TradingView MCP
 [ ] 3. Set symbol + timeframe
 [ ] 4. Inject pine, compile, fix compile errors only (does not count as the strategy change)
 [ ] 5. Read strategy metrics
-[ ] 6. If target hit: write runs/report, stop
-[ ] 7. If loop_limit hit: keep best, stop
-[ ] 8. Else: name the weakness, change ONE thing, save pine, next cycle
+[ ] 6. Record the cycle (hub run writes ledger.jsonl; MCP-only: python -m hub record --hypothesis ... --change ...)
+[ ] 7. If target hit: write runs/report, stop
+[ ] 8. If loop_limit hit: keep best, stop
+[ ] 9. Else: name the weakness, change ONE thing that is not in Do not retry, save pine, next cycle
 ```
 
 ## What to change
 
 Prefer in this order:
 
-1. Stops / targets (`atr_mult`, `rr_ratio`)
-2. Trend lengths (`fast_ema`, `slow_ema`) keep fast < slow
-3. RSI gates
+1. Stops / targets (`atr_mult`, `rr_ratio`, `invalid_pct`)
+2. Reclaim distance (`reclaim_pct`) and MA length (`ma_len`) keep ma_len < ma_len_slow
+3. Lookback / cooldown
 4. Only then entry logic (one filter)
 
-Reject a change if trades collapse below `target.min_trades` or MDD blows past `max_drawdown_percent`.
+Reject a change if trades collapse below `target.min_trades` or MDD blows past `max_drawdown_percent`. Also reject if score is worse than the ledger Keep row.
 
 ## Output each cycle
 
-Write `runs/cycles.jsonl` append-only if the Python hub is not already logging. After stop, write `runs/report-*.md` with symbol, iterations, best params, metrics, and the last hypothesis.
+`python -m hub run` appends `ledger.jsonl` and rebuilds `ledger.md` (date, git commit, params, tester metrics, keep/reject). Runtime copies still go to `runs/cycles.jsonl` and `runs/report-*.md` but those are gitignored.
+
+If you used MCP tools instead of the hub CLI, run:
+
+`python -m hub record --hypothesis "..." --change "..." --verdict keep|reject --lesson "..." --from-cycle runs/live-smoke/cycles.jsonl`
 
 If MCP is disconnected, say so and offer `python -m hub run --dry-run` for the skeleton loop, or `python -m hub run` once `tv` CLI works.

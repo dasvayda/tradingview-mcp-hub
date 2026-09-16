@@ -230,11 +230,10 @@ class DryRunTvClient:
     """Offline stand-in so the loop can be tested without TradingView Desktop."""
 
     SWEET_SPOT = {
-        "fast_ema": 12.0,
-        "slow_ema": 55.0,
-        "rsi_long": 52.0,
+        "ma_len": 50.0,
         "atr_mult": 2.0,
-        "rr_ratio": 2.5,
+        "rr_ratio": 2.0,
+        "reclaim_pct": 1.015,
     }
 
     def __init__(self, config: HubConfig, params_provider) -> None:
@@ -298,7 +297,7 @@ class DryRunTvClient:
             period_end="2026-01-01T00:00:00Z",
             period_source="dry-run",
             bar_count=5000,
-            strategy="HUB DOGE EMA RSI ATR",
+            strategy="HUB DOGE Daily MA Reclaim",
             currency="USD",
         )
 

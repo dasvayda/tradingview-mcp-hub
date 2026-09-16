@@ -1,0 +1,51 @@
+//@version=6
+strategy("HUB DOGE Daily MA Reclaim", overlay=true, pyramiding=0, initial_capital=10000, default_qty_type=strategy.percent_of_equity, default_qty_value=100, commission_type=strategy.commission.percent, commission_value=0.1, slippage=2, process_orders_on_close=true, calc_on_every_tick=false, max_bars_back=5000)
+
+// Daily HA MA reclaim. Chart TF is 1h; signals fire on a new day only.
+lookbackDays = input.int(10, "Lookback Days", minval = 3, maxval = 30)              // HUB:lookback_days
+maLen      = input.int(89, "MA Length", minval = 10, maxval = 200)                   // HUB:ma_len
+maLenSlow  = input.int(100, "Slow MA Length", minval = 20, maxval = 300)             // HUB:ma_len_slow
+reclaimPct = input.float(1.015, "Reclaim Mult", minval = 1.0, step = 0.001)        // HUB:reclaim_pct
+belowPct   = input.float(0.98, "Was-Below Mult", minval = 0.9, step = 0.005)       // HUB:below_pct
+atrLen     = input.int(14, "ATR Length", minval = 5, maxval = 50)                    // HUB:atr_len
+atrMult    = input.float(2.0, "ATR Stop Mult", minval = 0.5, step = 0.1)            // HUB:atr_mult
+rrRatio    = input.float(2.0, "Reward Risk", minval = 0.5, step = 0.1)              // HUB:rr_ratio
+cooldownDays = input.int(2, "Cooldown Days", minval = 0, maxval = 10)               // HUB:cooldown_days
+invalidPct = input.float(0.985, "MA Fail Mult", minval = 0.9, step = 0.005)        // HUB:invalid_pct
+allowLong  = input.bool(true, "Allow Long")                                         // HUB:allow_long
+
+haTicker = ticker.heikinashi(syminfo.tickerid)
+haOpen  = request.security(haTicker, "1D", open, lookahead = barmerge.lookahead_off)
+haLow   = request.security(haTicker, "1D", low, lookahead = barmerge.lookahead_off)
+haClose = request.security(haTicker, "1D", close, lookahead = barmerge.lookahead_off)
+maFast  = request.security(haTicker, "1D", ta.sma(close, maLen), lookahead = barmerge.lookahead_off)
+maSlow  = request.security(haTicker, "1D", ta.sma(close, maLenSlow), lookahead = barmerge.lookahead_off)
+atrD    = request.security(haTicker, "1D", ta.atr(atrLen), lookahead = barmerge.lookahead_off)
+wasBelowFast = request.security(haTicker, "1D", ta.lowest(low, lookbackDays) < ta.sma(close, maLen) * belowPct, lookahead = barmerge.lookahead_off)
+wasBelowSlow = request.security(haTicker, "1D", ta.lowest(low, lookbackDays) < ta.sma(close, maLenSlow) * belowPct, lookahead = barmerge.lookahead_off)
+
+bool newDay = timeframe.change("D")
+bool isBullish = haClose > haOpen
+bool reclaimFast = haClose > maFast * reclaimPct and (haClose[1] <= maFast[1] or haLow < maFast * 0.99)
+bool reclaimSlow = haClose > maSlow * reclaimPct and (haClose[1] <= maSlow[1] or haLow < maSlow * 0.99)
+bool longCond = allowLong and newDay and isBullish and ((wasBelowFast and reclaimFast) or (wasBelowSlow and reclaimSlow))
+
+var int lastEntryDay = 0
+var float longStop = na
+var float longLimit = na
+int dayNum = int(time / 86400000)
+bool cooled = lastEntryDay == 0 or (dayNum - lastEntryDay) >= cooldownDays
+
+if longCond and cooled and barstate.isconfirmed
+    strategy.entry("Long", strategy.long)
+    longStop := haClose - atrD * atrMult
+    longLimit := haClose + atrD * atrMult * rrRatio
+    lastEntryDay := dayNum
+
+if strategy.position_size > 0
+    strategy.exit("Long Exit", from_entry = "Long", stop = longStop, limit = longLimit)
+    if newDay and haClose < maFast * invalidPct
+        strategy.close("Long", comment = "MA fail")
+
+plot(maFast, "Daily MA Fast", color.new(color.green, 0))
+plot(maSlow, "Daily MA Slow", color.new(color.blue, 0))

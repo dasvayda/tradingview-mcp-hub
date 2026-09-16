@@ -23,7 +23,7 @@ target:
   max_drawdown_percent: 35.0
 
 pine:
-  source_path: pinescript/doge_ema_rsi_atr.pine
+  source_path: pinescript/doge_daily_ma_reclaim.pine
   current_path: pinescript/current.pine
 
 tv:
@@ -44,11 +44,11 @@ mutation:
   mode: params
   seed: 7
   knobs:
-    fast_ema: [8, 12, 16, 21]
-    slow_ema: [26, 34, 55, 89]
-    rsi_long: [50, 52, 55, 58]
-    atr_mult: [1.2, 1.5, 2.0, 2.5]
-    rr_ratio: [1.5, 2.0, 2.5, 3.0]
+    ma_len: [50, 89]
+    atr_mult: [2.0]
+    rr_ratio: [2.0]
+    # 1.005 was tried and rejected (MDD 37.8%). Do not put it back; see ledger.md.
+    reclaim_pct: [1.015]
 
 output:
   runs_dir: runs

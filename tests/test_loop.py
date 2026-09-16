@@ -29,14 +29,17 @@ def test_dry_run_loop_moves_toward_target(tmp_path: Path):
             "mode": "params",
             "seed": 7,
             "knobs": {
-                "fast_ema": [8, 12, 16, 21],
-                "slow_ema": [26, 34, 55, 89],
-                "rsi_long": [50, 52, 55, 58],
-                "atr_mult": [1.2, 1.5, 2.0, 2.5],
-                "rr_ratio": [1.5, 2.0, 2.5, 3.0],
+                "ma_len": [34, 50, 89],
+                "atr_mult": [1.5, 2.0, 2.5],
+                "rr_ratio": [1.5, 2.0, 2.5],
+                "reclaim_pct": [1.005, 1.015, 1.03],
             },
         },
         "output": {"runs_dir": str(tmp_path / "runs")},
+        "ledger": {
+            "jsonl": str(tmp_path / "ledger.jsonl"),
+            "markdown": str(tmp_path / "ledger.md"),
+        },
     }
     config_path = tmp_path / "cfg.yaml"
     config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
@@ -49,6 +52,8 @@ def test_dry_run_loop_moves_toward_target(tmp_path: Path):
     assert result.best.score > -1000
     if result.status == "target_hit":
         assert result.best.metrics.net_profit_percent >= 20.0
+    assert (tmp_path / "ledger.jsonl").exists()
+    assert "Keep" in (tmp_path / "ledger.md").read_text(encoding="utf-8")
 
 
 def test_agent_mode_runs_one_cycle(tmp_path: Path):
@@ -68,8 +73,12 @@ def test_agent_mode_runs_one_cycle(tmp_path: Path):
             "source_path": str(base.pine.source_path),
             "current_path": str(tmp_path / "current.pine"),
         },
-        "mutation": {"mode": "agent", "seed": 1, "knobs": {"fast_ema": [8, 12]}},
+        "mutation": {"mode": "agent", "seed": 1, "knobs": {"ma_len": [34, 50]}},
         "output": {"runs_dir": str(tmp_path / "runs")},
+        "ledger": {
+            "jsonl": str(tmp_path / "ledger.jsonl"),
+            "markdown": str(tmp_path / "ledger.md"),
+        },
     }
     config_path = tmp_path / "agent.yaml"
     config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
@@ -77,3 +86,5 @@ def test_agent_mode_runs_one_cycle(tmp_path: Path):
     result = loop.run()
     assert result.iterations == 1
     assert result.status == "awaiting_agent_edit"
+    assert result.history[0].verdict in {"keep", "reject", "note"}
+    assert (tmp_path / "ledger.jsonl").exists()

@@ -31,6 +31,7 @@ TradingView Inc. 공식 도구가 아님. 로컬 Desktop 이 debug 포트로 켜
 | 파일 | 내용 |
 |------|------|
 | [progress.md](progress.md) | 지금 하는 일, 남은 일 |
+| [ledger.md](ledger.md) | 백테스트 날짜·커밋·가설·성적 |
 | [decisions.md](decisions.md) | 큰 방향과, 하지 않기로 한 것 |
 | [architecture.md](architecture.md) | 코드가 이렇게 나뉜 이유 |
 | [agent.md](agent.md) | 차트·파인·MCP 를 만질 때 규칙 |

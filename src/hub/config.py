@@ -57,6 +57,7 @@ def load_config(path: str | Path | None = None) -> HubConfig:
         raise ValueError("loop_limit must be >= 1")
 
     layout_name = str(raw.get("layout") or "").strip() or None
+    ledger = raw.get("ledger") or {}
 
     return HubConfig(
         symbol=str(raw.get("symbol") or "BINANCE:DOGEUSDT"),
@@ -71,7 +72,7 @@ def load_config(path: str | Path | None = None) -> HubConfig:
             max_drawdown_percent=float(target.get("max_drawdown_percent", 35)),
         ),
         pine=PineSpec(
-            source_path=_as_path(root, pine.get("source_path") or "pinescript/doge_ema_rsi_atr.pine"),
+            source_path=_as_path(root, pine.get("source_path") or "pinescript/doge_daily_ma_reclaim.pine"),
             current_path=_as_path(root, pine.get("current_path") or "pinescript/current.pine"),
         ),
         tv=TvSpec(
@@ -90,6 +91,8 @@ def load_config(path: str | Path | None = None) -> HubConfig:
             knobs=_knobs(mutation.get("knobs") or {}),
         ),
         runs_dir=_as_path(root, output.get("runs_dir") or "runs"),
+        ledger_jsonl=_as_path(root, ledger.get("jsonl") or "ledger.jsonl"),
+        ledger_md=_as_path(root, ledger.get("markdown") or "ledger.md"),
         root=root,
         raw=raw,
     )

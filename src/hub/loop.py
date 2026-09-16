@@ -5,6 +5,7 @@ import time
 from typing import Callable
 
 from hub import pine
+from hub.ledger import append_cycle, git_state, load_banned_matches, load_ledger_best, utc_now
 from hub.metrics import evaluate
 from hub.models import CycleRecord, HubConfig, LoopResult, StrategyMetrics
 from hub.mutate import ParamSearch
@@ -36,7 +37,11 @@ class BacktestLoop:
         self.dry_run = dry_run
         self.template = pine.read_source(config.pine.source_path)
         self.params = pine.extract_params(self.template)
-        self.search = ParamSearch(config.mutation.knobs, config.mutation.seed)
+        self.search = ParamSearch(
+            config.mutation.knobs,
+            config.mutation.seed,
+            banned_matches=load_banned_matches(config.ledger_jsonl),
+        )
         self.removed_strategies: list[str] = []
 
     def _prepare_chart(self) -> None:
@@ -111,6 +116,7 @@ class BacktestLoop:
         self.search.mark(self.params)
 
         best: CycleRecord | None = None
+        ledger_best = load_ledger_best(self.config.ledger_jsonl, symbol=self.config.symbol)
         status = "loop_limit"
 
         cycles = 1 if self.config.mutation.mode == "agent" else self.config.loop_limit
@@ -118,14 +124,27 @@ class BacktestLoop:
             snapshot = self._write_iteration_pine(iteration)
             record = self._backtest(snapshot)
             record.iteration = iteration
+            record.recorded_at = utc_now()
+            record.git_commit, record.git_dirty = git_state(self.config.root)
+            previous_params = history[-1].params if history else (ledger_best.params if ledger_best else None)
+            previous_best = best
+            if ledger_best is not None and (previous_best is None or ledger_best.score > previous_best.score):
+                previous_best = ledger_best
+            append_cycle(
+                record,
+                self.config,
+                previous_params=previous_params,
+                previous_best=previous_best,
+            )
             history.append(record)
             write_jsonl(jsonl, record, self.config)
             log(
                 f"iter {iteration}/{cycles} score={record.score:.2f} "
-                f"np%={record.metrics.net_profit_percent} reason={record.reason}"
+                f"np%={record.metrics.net_profit_percent} "
+                f"verdict={record.verdict or '-'} reason={record.reason}"
             )
 
-            if best is None or record.score > best.score:
+            if record.verdict != "reject" and (best is None or record.score > best.score):
                 best = record
                 _copy_best_pine(self.config.pine.current_path, self.config.runs_dir / "best.pine")
 
@@ -138,7 +157,11 @@ class BacktestLoop:
                 status = "awaiting_agent_edit"
                 break
 
-            keep_params = best.params if best is not None else self.params
+            keep_params = self.params
+            if best is not None:
+                keep_params = best.params
+            elif ledger_best is not None:
+                keep_params = ledger_best.params
             nxt = self.search.next_candidate(keep_params)
             if nxt is None:
                 status = "search_exhausted"

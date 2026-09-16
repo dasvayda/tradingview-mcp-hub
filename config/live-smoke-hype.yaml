@@ -1,7 +1,7 @@
-# First live smoke: 2 backtest cycles against Desktop.
-# Same chart settings as default.yaml, shorter loop for log analysis.
+# Out-of-sample smoke: same Keep pine on HYPE perpetual.
+# Layout crypto then symbol override. Do not compare NP to DOGE keep.
 
-symbol: BINANCE:DOGEUSDT
+symbol: BINANCE:HYPEUSDT.P
 timeframe: "60"
 layout: crypto
 loop_limit: 1
@@ -31,10 +31,10 @@ mutation:
   mode: params
   seed: 7
   knobs:
-    ma_len: [50, 89]
+    ma_len: [89]
     atr_mult: [2.0]
     rr_ratio: [2.0]
     reclaim_pct: [1.015]
 
 output:
-  runs_dir: runs/live-smoke
+  runs_dir: runs/live-smoke-hype

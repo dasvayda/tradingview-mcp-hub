@@ -154,7 +154,9 @@ def score_metrics(metrics: StrategyMetrics, target: TargetSpec) -> float:
     pf = metrics.profit_factor or 0.0
     dd = metrics.max_drawdown_percent or 0.0
     trade_bonus = min(trades, target.min_trades) * 0.15
-    pf_bonus = max(pf - 1.0, -1.0) * 8.0
+    # Two winning trades can print PF 300+. Cap so PF cannot drown net profit.
+    pf_capped = min(pf, 3.0)
+    pf_bonus = max(pf_capped - 1.0, -1.0) * 8.0
     dd_penalty = max(0.0, dd - target.max_drawdown_percent) * 1.5
     return profit + trade_bonus + pf_bonus - dd_penalty
 

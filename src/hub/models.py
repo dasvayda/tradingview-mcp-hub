@@ -50,6 +50,8 @@ class HubConfig:
     tv: TvSpec
     mutation: MutationSpec
     runs_dir: Path
+    ledger_jsonl: Path
+    ledger_md: Path
     root: Path
     raw: dict[str, Any] = field(repr=False, default_factory=dict)
 
@@ -98,6 +100,15 @@ class CycleRecord:
     accepted: bool
     reason: str
     pine_snapshot: Path | None = None
+    recorded_at: str | None = None
+    git_commit: str | None = None
+    git_dirty: bool = False
+    hypothesis: str = ""
+    change: str = ""
+    verdict: str = ""
+    lesson: str = ""
+    ban: dict[str, Any] | None = None
+    report_path: Path | None = None
 
 
 @dataclass

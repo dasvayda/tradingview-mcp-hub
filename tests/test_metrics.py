@@ -1,4 +1,4 @@
-from hub.metrics import analysis_snapshot, metrics_from_payload, target_hit, unix_to_iso
+from hub.metrics import analysis_snapshot, metrics_from_payload, score_metrics, target_hit, unix_to_iso
 from hub.models import TargetSpec
 
 
@@ -106,3 +106,29 @@ def test_analysis_snapshot_matches_tester_key_stats():
     assert snap["winning_trades"] == 114
     assert snap["period_start"] == "2024-01-01T00:00:00Z"
     assert snap["period_end"] == "2026-09-15T14:00:00Z"
+
+
+def test_huge_profit_factor_does_not_outrank_higher_net_profit():
+    target = _target()
+    keep = metrics_from_payload(
+        {
+            "metrics": {
+                "net_profit_percent": 93.0,
+                "profit_factor": 9.9,
+                "max_drawdown_percent": 14.0,
+                "total_trades": 4,
+            }
+        }
+    )
+    two_wins = metrics_from_payload(
+        {
+            "metrics": {
+                "net_profit_percent": 59.0,
+                "profit_factor": 373.0,
+                "max_drawdown_percent": 14.0,
+                "total_trades": 2,
+            }
+        }
+    )
+    assert score_metrics(keep, target) > score_metrics(two_wins, target)
+

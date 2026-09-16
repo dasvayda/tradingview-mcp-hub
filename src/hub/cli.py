@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from hub.config import DEFAULT_CONFIG, load_config
+from hub.ledger import record_from_cycle_file, rewrite_markdown
 from hub.loop import build_client
 from hub.report import cycle_to_dict
 from hub.web import serve
@@ -42,6 +44,35 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0 if snapshot["state"] == "ready" else 2
 
 
+def cmd_record(args: argparse.Namespace) -> int:
+    config = load_config(args.config)
+    cycle_path = Path(args.from_cycle) if args.from_cycle else (config.runs_dir / "cycles.jsonl")
+    ban_match: dict[str, float] = {}
+    for item in args.ban or []:
+        if "=" not in item:
+            raise SystemExit(f"ban must look like name=value, got {item!r}")
+        key, value = item.split("=", 1)
+        ban_match[key.strip()] = float(value)
+    entry = record_from_cycle_file(
+        cycle_path,
+        config,
+        hypothesis=args.hypothesis or "",
+        change=args.change or "",
+        verdict=args.verdict or "",
+        lesson=args.lesson or "",
+        ban_match=ban_match or None,
+    )
+    _print(json.dumps(entry, indent=2, ensure_ascii=True))
+    return 0
+
+
+def cmd_ledger(args: argparse.Namespace) -> int:
+    config = load_config(args.config)
+    rewrite_markdown(config.ledger_jsonl, config.ledger_md)
+    _print(str(config.ledger_md))
+    return 0
+
+
 def cmd_web(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     serve(args.host, args.port, config.tv.cdp_port)
@@ -67,6 +98,20 @@ def build_parser() -> argparse.ArgumentParser:
     web.add_argument("--host", default="127.0.0.1")
     web.add_argument("--port", type=int, default=8788)
     web.set_defaults(func=cmd_web)
+
+    record = sub.add_parser("record", help="Append the last cycle to ledger.jsonl / ledger.md")
+    add_common(record)
+    record.add_argument("--from-cycle", help="cycles.jsonl path (default: <runs_dir>/cycles.jsonl)")
+    record.add_argument("--hypothesis", default="", help="What this cycle was testing")
+    record.add_argument("--change", default="", help="The one code or param change")
+    record.add_argument("--verdict", default=None, choices=["keep", "reject", "note"])
+    record.add_argument("--lesson", default="", help="Why keep or reject")
+    record.add_argument("--ban", action="append", default=[], help="Repeatable name=value to never retry")
+    record.set_defaults(func=cmd_record)
+
+    ledger = sub.add_parser("ledger", help="Rebuild ledger.md from ledger.jsonl")
+    add_common(ledger)
+    ledger.set_defaults(func=cmd_ledger)
     return parser
 
 
